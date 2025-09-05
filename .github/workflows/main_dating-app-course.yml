@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read 
 
     steps:
       - name: checkout code
@@ -96,3 +96,4 @@ jobs:
          Copy-Item -Path ".\publish\*" -Destination "C:\inetpub\datingapplatest" -Recurse -Force -ToSession $session
          # Clean up
          Remove-PSSession -Session $session
+
