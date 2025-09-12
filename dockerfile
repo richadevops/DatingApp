@@ -30,8 +30,7 @@ COPY . .
 
 # Copy Angular build into wwwroot
 RUN rm -rf API/wwwroot && mkdir -p API/wwwroot
-# Adjust "client" below to match the folder name inside dist
-COPY --from=angular-build /app/dist/client ./API/wwwroot
+COPY --from=angular-build /app/dist ./API/wwwroot
 
 # Build and publish backend
 WORKDIR "/src/API"
