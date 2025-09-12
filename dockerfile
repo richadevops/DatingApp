@@ -25,25 +25,29 @@ COPY ["API/API.csproj", "API/"]
 # Restore dependencies
 RUN dotnet restore "API/API.csproj"
 
-# Copy all source code
+# Copy the rest of the source code
 COPY . .
 
 # Copy Angular build into wwwroot
 RUN rm -rf API/wwwroot && mkdir -p API/wwwroot
-COPY --from=angular-build /app/dist ./API/wwwroot
+# Adjust "client" below to match the folder name inside dist
+COPY --from=angular-build /app/dist/client ./API/wwwroot
 
 # Build and publish backend
 WORKDIR "/src/API"
+RUN dotnet build -c Release -o /app/build
 RUN dotnet publish -c Release -o /app/publish
 
 # ----------- Stage 3: Runtime -----------
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
+
+# Azure App Service expects port 80
 ENV ASPNETCORE_URLS=http://+:80
 EXPOSE 80
 
 # Copy published backend
-COPY --from=build /app/publish .
+COPY --from=build /app/publish ./
 
-# Run the application
+# Start the app
 ENTRYPOINT ["dotnet", "API.dll"]
