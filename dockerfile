@@ -2,16 +2,12 @@
 FROM node:20 AS angular-build
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package.json and install dependencies
 COPY client/package*.json ./
-
-# Install dependencies
 RUN npm install
 
-# Copy the rest of the Angular app
+# Copy Angular app and build
 COPY client/ ./
-
-# Build Angular app for production
 RUN npm run build -- --output-path=dist
 
 # ----------- Stage 2: Build ASP.NET backend -----------
@@ -25,16 +21,14 @@ COPY ["API/API.csproj", "API/"]
 # Restore dependencies
 RUN dotnet restore "API/API.csproj"
 
-# Copy the rest of the source code
+# Copy rest of the source code
 COPY . .
 
-# Copy Angular build into wwwroot
-RUN rm -rf API/wwwroot && mkdir -p API/wwwroot
+# Copy Angular build output into backend wwwroot
 COPY --from=angular-build /app/dist ./API/wwwroot
 
 # Build and publish backend
 WORKDIR "/src/API"
-RUN dotnet build -c Release -o /app/build
 RUN dotnet publish -c Release -o /app/publish
 
 # ----------- Stage 3: Runtime -----------
@@ -46,7 +40,7 @@ ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
 # Copy published backend
-COPY --from=build /app/publish ./
+COPY --from=build /app/publish .
 
 # Start the app
 ENTRYPOINT ["dotnet", "API.dll"]
