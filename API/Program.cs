@@ -72,6 +72,13 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAdminRole", policy => policy.RequireRole("Admin"))
     .AddPolicy("ModeratePhotoRole", policy => policy.RequireRole("Admin", "Moderator"));
 
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    // Bind to the ASPNETCORE_URLS value if provided, otherwise default to 8080
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    serverOptions.ListenAnyIP(int.Parse(port));
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
