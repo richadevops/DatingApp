@@ -15,7 +15,7 @@ env:
   IMAGE_TAG: ${{ github.sha }}    # Tag image with commit SHA
   APP_SERVICE_NAME: richadocker
   RESOURCE_GROUP: rd-dev-01              # <-- Replace with your resource group
-  LOCATION: eastus                       # <-- Replace with your Azure region
+  LOCATION: centralindia                       # <-- Replace with your Azure region
   APP_SERVICE_PLAN: docker-linux-plan    # <-- App Service Plan name
 
 jobs:
