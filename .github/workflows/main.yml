@@ -13,7 +13,10 @@ env:
   REGISTRY_NAME: dockertestapp     # <-- Replace with your ACR name (without .azurecr.io)
   IMAGE_NAME: richadockerlatest              # <-- Replace with your app name
   IMAGE_TAG: ${{ github.sha }}    # Tag image with commit SHA
-  APP_SERVICE_NAME: richdatdocker
+  APP_SERVICE_NAME: richadocker
+  RESOURCE_GROUP: rd-dev-01              # <-- Replace with your resource group
+  LOCATION: eastus                       # <-- Replace with your Azure region
+  APP_SERVICE_PLAN: docker-linux-plan    # <-- App Service Plan name
 
 jobs:
  build:
@@ -43,6 +46,41 @@ jobs:
       docker build -t $REGISTRY_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG .
       echo "Pushing image to ACR..."
       docker push $REGISTRY_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG
+
+   - name: Ensure App Service Plan & Web App exist
+     run: |
+        # Check if App Service Plan exists, if not create it
+        if ! az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP > /dev/null 2>&1; then
+          echo "Creating App Service Plan..."
+          az appservice plan create \
+            --name $APP_SERVICE_PLAN \
+            --resource-group $RESOURCE_GROUP \
+            --sku B1 \
+            --is-linux
+        else
+          echo "App Service Plan already exists."
+        fi
+
+        # Check if Web App exists, if not create it
+        if ! az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP > /dev/null 2>&1; then
+          echo "Creating Web App..."
+          az webapp create \
+            --resource-group $RESOURCE_GROUP \
+            --plan $APP_SERVICE_PLAN \
+            --name $APP_SERVICE_NAME \
+            --deployment-container-image-name $REGISTRY_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG
+        else
+          echo "Web App already exists."
+        fi
+
+        # Update Web App to point to latest image
+        az webapp config container set \
+          --resource-group $RESOURCE_GROUP \
+          --name $APP_SERVICE_NAME \
+          --docker-custom-image-name $REGISTRY_NAME.azurecr.io/$IMAGE_NAME:$IMAGE_TAG \
+          --docker-registry-server-url https://$REGISTRY_NAME.azurecr.io \
+          --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
+          --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
       
    - name: deploy to app service
      uses:  azure/webapps-deploy@v2
