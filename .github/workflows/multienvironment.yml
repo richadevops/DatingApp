@@ -57,34 +57,77 @@ jobs:
           name: .net-app
           path: publish/
 
-deploy-to-sit:
- if: github.event_name == 'push'
- needs: build
- runs-on: ubuntu-latest
- environment: SIT
- steps:
+  deploytosit:
+   if: github.event_name == 'push'
+   needs: build
+   runs-on: ubuntu-latest
+   environment: SIT
+   permissions:
+      id-token: write
+      contents: read
+   steps:
+   - name: Download artifact from build job
+     uses: actions/download-artifact@v4
+     with:
+      name: .net-app
+      path: publish
+   - name: Deploy to app service
+     uses: Azure/webapps-deploy@v3.0.6
+     with:
+      app-name: ${{ secrets.APP_SERVICE_NAME }}
+      publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+      package: ./publish
+      
+  deploy-to-qa:
+   if: github.event_name == 'push'
+   needs: build
+   runs-on: ubuntu-latest
+   environment: QA
+   steps:
+   - name: Download artifact from build job
+     uses: actions/download-artifact@v4
+     with:
+      name: .net-app
+      path: publish
+   - name: Deploy to app service
+     uses: Azure/webapps-deploy@v3.0.6
+     with:
+      app-name: ${{ secrets.APP_SERVICE_NAME }}
+      publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+      package: ./publish
 
-deploy-to-qa:
- if: github.event_name == 'push'
- needs: build
- runs-on: ubuntu-latest
- environment: QA
- steps:
+  deploy-to-uat:
+   if: github.event_name == 'push'
+   needs: build
+   runs-on: ubuntu-latest
+   environment: UAT
+   steps:
+   - name: Download artifact from build job
+     uses: actions/download-artifact@v4
+     with:
+      name: .net-app
+      path: publish
+   - name: Deploy to app service
+     uses: Azure/webapps-deploy@v3.0.6
+     with:
+      app-name: ${{ secrets.APP_SERVICE_NAME }}
+      publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+      package: ./publish
 
-deploy-to-uat:
- if: github.event_name == 'push'
- needs: build
- runs-on: ubuntu-latest
- environment: UAT
- steps:
-
-manual-deploy:
+  manual-deploy:
     if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
     steps:
-    - uses: actions/download-artifact@v4
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v4
       with:
-          name: app-build
-          path: dist/
+        name: .net-app
+        path: publish
+    - name: Deploy to app service
+      uses: Azure/webapps-deploy@v3.0.6
+      with:
+        app-name: ${{ secrets.APP_SERVICE_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ./publish
