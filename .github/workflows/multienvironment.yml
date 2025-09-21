@@ -57,7 +57,7 @@ jobs:
           name: .net-app
           path: publish/
 
-  deploytosit:
+  deploy-to-sit:
    if: github.event_name == 'push'
    needs: build
    runs-on: ubuntu-latest
@@ -80,7 +80,7 @@ jobs:
       
   deploy-to-qa:
    if: github.event_name == 'push'
-   needs: build
+   needs: deploy-to-sit
    runs-on: ubuntu-latest
    environment: QA
    steps:
@@ -98,7 +98,7 @@ jobs:
 
   deploy-to-uat:
    if: github.event_name == 'push'
-   needs: build
+   needs: deploy-to-qa
    runs-on: ubuntu-latest
    environment: UAT
    steps:
