@@ -62,13 +62,16 @@ jobs:
           name: .net-app
           path: publish/
 
+  # -------------------------
+  # DEPLOY TO SIT
+  # -------------------------
   deploy-to-sit:
+    needs: build
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-        (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
-    needs: build
+      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
+      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
     runs-on: ubuntu-latest
     environment: SIT
     steps:
@@ -82,14 +85,16 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
 
+  # -------------------------
+  # DEPLOY TO QA
+  # -------------------------
   deploy-to-qa:
-    # 👇 This job depends on build if SIT was skipped
-    needs: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa' && 'build' || 'deploy-to-sit' }}
+    needs: [build, deploy-to-sit]
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-        (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
+      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
+      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
     runs-on: ubuntu-latest
     environment: QA
     steps:
@@ -103,14 +108,16 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
 
+  # -------------------------
+  # DEPLOY TO UAT
+  # -------------------------
   deploy-to-uat:
-    # 👇 This job depends on build if QA was skipped
-    needs: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat' && 'build' || 'deploy-to-qa' }}
+    needs: [build, deploy-to-qa]
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
-        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
+      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
+      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
     runs-on: ubuntu-latest
     environment: UAT
     steps:
