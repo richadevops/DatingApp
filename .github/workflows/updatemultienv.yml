@@ -1,0 +1,195 @@
+name: Build & Deploy Multienv. Pipeline updated one
+
+on:
+  push:
+
+  workflow_dispatch:
+    inputs:
+      deploy_mode:
+        description: "Choose deploy mode"
+        required: true
+        type: choice
+        options:
+          - single
+          - sequential
+      environment:
+        description: "Select environment to deploy"
+        required: true
+        type: choice
+        options:
+          - sit
+          - qa
+          - uat
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Angular CLI
+        run: npm install -g @angular/cli@20
+
+      - name: Install deps and build Angular app
+        run: |
+          cd client
+          npm install
+          ng build
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build with dotnet
+        run: dotnet build --configuration Release
+
+      - name: dotnet publish
+        run: dotnet publish -c Release -o publish
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: publish/
+
+  # =======================
+  # AUTO DEPLOYMENT (push)
+  # =======================
+  deploy-to-sit:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: SIT
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to SIT App Service
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.SIT_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.SIT_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  deploy-to-qa:
+    if: github.event_name == 'push'
+    needs: deploy-to-sit
+    runs-on: ubuntu-latest
+    environment: QA
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to QA App Service
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.QA_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.QA_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  deploy-to-uat:
+    if: github.event_name == 'push'
+    needs: deploy-to-qa
+    runs-on: ubuntu-latest
+    environment: UAT
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to UAT App Service
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.UAT_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.UAT_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  # =================================
+  # MANUAL DEPLOYMENT (workflow_dispatch)
+  # =================================
+  manual-deploy-sit:
+    if: github.event_name == 'workflow_dispatch' && (
+        github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit' ||
+        github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment in ['sit','qa','uat']
+      )
+    needs: build
+    runs-on: ubuntu-latest
+    environment: SIT
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to SIT
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.SIT_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.SIT_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  manual-deploy-qa:
+    if: github.event_name == 'workflow_dispatch' && (
+        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
+        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment in ['qa','uat'])
+      )
+    needs: manual-deploy-sit
+    runs-on: ubuntu-latest
+    environment: QA
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to QA
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.QA_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.QA_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  manual-deploy-uat:
+    if: github.event_name == 'workflow_dispatch' && (
+        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
+        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')
+      )
+    needs: manual-deploy-qa
+    runs-on: ubuntu-latest
+    environment: UAT
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+
+      - name: Deploy to UAT
+        uses: Azure/webapps-deploy@v3.0.6
+        with:
+          app-name: ${{ secrets.UAT_APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.UAT_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
