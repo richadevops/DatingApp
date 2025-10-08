@@ -64,7 +64,8 @@ jobs:
         with:
           name: .net-app
           path: publish
-      - uses: Azure/webapps-deploy@v3
+      - name: Deploy to SIT
+        uses: Azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
@@ -83,7 +84,8 @@ jobs:
         with:
           name: .net-app
           path: publish
-      - uses: Azure/webapps-deploy@v3
+      - name: Deploy to QA
+        uses: Azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
@@ -102,13 +104,14 @@ jobs:
         with:
           name: .net-app
           path: publish
-      - uses: Azure/webapps-deploy@v3
+      - name: Deploy to UAT
+        uses: Azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
 
-  # --- SINGLE DEPLOYMENTS (no dependencies, for single mode only) ---
+  # --- SINGLE DEPLOYMENT JOB ---
   deploy-single:
     needs: build
     runs-on: ubuntu-latest
@@ -118,9 +121,27 @@ jobs:
         with:
           name: .net-app
           path: publish
-      - name: Deploy to selected environment
+
+      - name: Deploy to SIT (single mode)
+        if: github.event.inputs.environment == 'sit'
         uses: Azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets[format('APP_SERVICE_NAME_{0}', github.event.inputs.environment | upper)] }}
-          publish-profile: ${{ secrets[format('AZURE_WEBAPP_PUBLISH_PROFILE_{0}', github.event.inputs.environment | upper)] }}
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+      - name: Deploy to QA (single mode)
+        if: github.event.inputs.environment == 'qa'
+        uses: Azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+      - name: Deploy to UAT (single mode)
+        if: github.event.inputs.environment == 'uat'
+        uses: Azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./publish
