@@ -1,4 +1,4 @@
-name: Build & Deploy Multienv Pipeline updated
+name: Build & Deploy Multienv Pipeline
 
 on:
   push:
@@ -51,15 +51,14 @@ jobs:
           name: .net-app
           path: publish/
 
+  # --- SEQUENTIAL DEPLOYMENTS (for push and sequential mode) ---
   deploy-to-sit:
     needs: build
     runs-on: ubuntu-latest
     environment: SIT
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-      (github.event.inputs.deploy_mode == 'sequential')))
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'sequential')
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -72,16 +71,13 @@ jobs:
           package: ./publish
 
   deploy-to-qa:
-    # Sequential on push, or conditional for manual runs
     needs: [build, deploy-to-sit]
     runs-on: ubuntu-latest
     environment: QA
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-      (github.event.inputs.deploy_mode == 'sequential' && 
-      (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'sequential' &&
+      (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -94,15 +90,13 @@ jobs:
           package: ./publish
 
   deploy-to-uat:
-    # Sequential on push, or conditional for manual runs
     needs: [build, deploy-to-qa]
     runs-on: ubuntu-latest
     environment: UAT
     if: |
       github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
-      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'sequential' &&
+      github.event.inputs.environment == 'uat')
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -112,4 +106,21 @@ jobs:
         with:
           app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
+
+  # --- SINGLE DEPLOYMENTS (no dependencies, for single mode only) ---
+  deploy-single:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'single'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+          path: publish
+      - name: Deploy to selected environment
+        uses: Azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets[format('APP_SERVICE_NAME_{0}', github.event.inputs.environment | upper)] }}
+          publish-profile: ${{ secrets[format('AZURE_WEBAPP_PUBLISH_PROFILE_{0}', github.event.inputs.environment | upper)] }}
           package: ./publish
