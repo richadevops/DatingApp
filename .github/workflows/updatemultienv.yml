@@ -1,4 +1,4 @@
-name: Build & Deploy Multienv. Pipeline updated
+name: Build & Deploy Multienv. Pipeline Updated
 
 on:
   push:
@@ -66,8 +66,8 @@ jobs:
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
+       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
+        (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
     needs: build
     runs-on: ubuntu-latest
     environment: SIT
@@ -83,12 +83,13 @@ jobs:
           package: ./publish
 
   deploy-to-qa:
+    # 👇 This job depends on build if SIT was skipped
+    needs: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa' && 'build' || 'deploy-to-sit' }}
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
-    needs: deploy-to-sit
+       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
+        (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
     runs-on: ubuntu-latest
     environment: QA
     steps:
@@ -103,12 +104,13 @@ jobs:
           package: ./publish
 
   deploy-to-uat:
+    # 👇 This job depends on build if QA was skipped
+    needs: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat' && 'build' || 'deploy-to-qa' }}
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
-      ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
-      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
-    needs: deploy-to-qa
+       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
+        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
     runs-on: ubuntu-latest
     environment: UAT
     steps:
