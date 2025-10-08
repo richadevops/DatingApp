@@ -1,4 +1,4 @@
-name: Build & Deploy Multienv. Pipeline Updated
+name: Build & Deploy Multienv Pipeline
 
 on:
   push:
@@ -26,54 +26,40 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: read
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install Angular CLI
-        run: npm install -g @angular/cli@20
-
-      - name: Install dependencies and build Angular app
-        run: |
+      - run: npm install -g @angular/cli@20
+      - run: |
           cd client
           npm install
           ng build
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - run: dotnet build --configuration Release
+      - run: dotnet publish -c Release -o publish
 
-      - name: Publish with dotnet
-        run: dotnet publish -c Release -o publish
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: .net-app
           path: publish/
 
-  # -------------------------
-  # DEPLOY TO SIT
-  # -------------------------
   deploy-to-sit:
     needs: build
+    runs-on: ubuntu-latest
+    environment: SIT
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
-    runs-on: ubuntu-latest
-    environment: SIT
+      (github.event.inputs.deploy_mode == 'sequential')))
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -81,22 +67,20 @@ jobs:
           path: publish
       - uses: Azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ secrets.APP_SERVICE_NAME_SIT }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_SIT }}
           package: ./publish
 
-  # -------------------------
-  # DEPLOY TO QA
-  # -------------------------
   deploy-to-qa:
-    needs: [build, deploy-to-sit]
+    needs: build
+    runs-on: ubuntu-latest
+    environment: QA
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
-    runs-on: ubuntu-latest
-    environment: QA
+      (github.event.inputs.deploy_mode == 'sequential' && 
+      (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))))
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -104,22 +88,19 @@ jobs:
           path: publish
       - uses: Azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ secrets.APP_SERVICE_NAME_QA }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_QA }}
           package: ./publish
 
-  # -------------------------
-  # DEPLOY TO UAT
-  # -------------------------
   deploy-to-uat:
-    needs: [build, deploy-to-qa]
+    needs: build
+    runs-on: ubuntu-latest
+    environment: UAT
     if: |
       github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
       ((github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
       (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')))
-    runs-on: ubuntu-latest
-    environment: UAT
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -127,6 +108,6 @@ jobs:
           path: publish
       - uses: Azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ secrets.APP_SERVICE_NAME_UAT }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_UAT }}
           package: ./publish
