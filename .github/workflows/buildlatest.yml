@@ -1,0 +1,57 @@
+name: Build .NET + Angular Artifacts latest
+
+on:
+  push:
+  
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      env-list: ${{ steps.set-env.outputs.env-list }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set environment list
+        id: set-env
+        shell: pwsh
+        run: |
+          # Decide environments to build (all)
+          $order = @("sit","qa","uat")
+          Write-Host "Environments to build: $($order -join ', ')"
+          Write-Output "env-list=$($order -join ' ')" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build & Publish per Environment
+        shell: pwsh
+        run: |
+          $envList = "${{ steps.set-env.outputs.env-list }}".Split(' ')
+          cd client
+          npm install
+          foreach ($env in $envList) {
+              Write-Host "=== Building $env ==="
+              ng build --configuration $env
+              cd ..
+              dotnet build --configuration $env
+              dotnet publish -c $env -o "./publish-$env"
+              cd client
+          }
+
+      - name: Upload artifacts
+        shell: pwsh
+        run: |
+          $envList = "${{ steps.set-env.outputs.env-list }}".Split(' ')
+          foreach ($env in $envList) {
+              Write-Host "Uploading artifact for $env"
+              gh actions upload-artifact --name app-$env --path "./publish-$env"
+          }
