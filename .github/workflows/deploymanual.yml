@@ -57,8 +57,9 @@ jobs:
         with:
          client-id: ${{ secrets.CLIENTID }}
          tenant-id: ${{ secrets.TENANTID }}
-         client-secret: ${{ secrets.CLIENTSECRET }}
          subscription-id: ${{ secrets.SUBSCRIPTIONID }}
+         auth-type: oidc
+         audience: api://AzureADTokenExchange
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
