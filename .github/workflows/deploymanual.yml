@@ -41,17 +41,18 @@ jobs:
           run-id: ${{ github.event.inputs.build_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2.3.0
-        with:
-         client-id: ${{ secrets.CLIENTID }}
-         tenant-id: ${{ secrets.TENANTID }}
-         subscription-id: ${{ secrets.SUBSCRIPTIONID }}
-         auth-type: SERVICE_PRINCIPAL
+      #- name: Azure Login (OIDC)
+       # uses: azure/login@v2.3.0
+        #with:
+         #client-id: ${{ secrets.CLIENTID }}
+         #tenant-id: ${{ secrets.TENANTID }}
+         #subscription-id: ${{ secrets.SUBSCRIPTIONID }}
+         #auth-type: SERVICE_PRINCIPAL
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3.0.5
         with:
            app-name: ${{ github.event.inputs.environment == 'sit' && secrets.APP_SERVICE_NAME || github.event.inputs.environment == 'qa' && secrets.APP_SERVICE_NAME || secrets.APP_SERVICE_NAME }}   
+           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
            package: ./deploy
           
