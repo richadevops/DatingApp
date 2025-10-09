@@ -84,9 +84,9 @@
                   "with": "src/environments/environment.development.ts"
                 }
               ]
-            }
-          },
-           "qa": {
+            },
+          
+            "qa": {
               "outputHashing": "all",
               "optimization": true,
               "fileReplacements": [
