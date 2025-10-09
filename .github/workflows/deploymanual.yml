@@ -18,7 +18,7 @@ on:
           - uat
 
 permissions:
-  id-token: write
+  #id-token: write
   contents: read       # Required to read artifacts
   actions: read        # Required to access workflow run artifacts
 
@@ -52,7 +52,7 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3.0.5
         with:
-           app-name: ${{ github.event.inputs.environment == 'sit' && secrets.APP_SERVICE_NAME || github.event.inputs.environment == 'qa' && secrets.APP_SERVICE_NAME || secrets.APP_SERVICE_NAME }}   
+           app-name: ${{ secrets.APP_SERVICE_NAME }}   
            publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
            package: ./deploy
           
