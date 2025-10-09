@@ -4,69 +4,69 @@ on:
   push:
 
   workflow_dispatch:
+    inputs:
+      environment:
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - sit
+          - qa
+          - uat
+          - all
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     outputs:
-      build-list: ${{ steps.set-env.outputs.env-list }}
+      build-list: ${{ steps.set-build-list.outputs.list }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Setup .NET
+      - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
-      - name: Determine environments to build
-        id: set-env
-        shell: pwsh
+      - name: Determine build environments
+        id: set-build-list
+        shell: bash
         run: |
-          # On push, build all environments
-          $envList = @("sit","qa","uat")
-          Write-Host "Environments to build: $($envList -join ', ')"
-          echo "env-list=$($envList -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          ENV="${{ github.event.inputs.environment }}"
+          ORDER=("sit" "qa" "uat")
+          BUILD_LIST=()
+          if [ "$ENV" = "all" ]; then
+            BUILD_LIST=("${ORDER[@]}")
+          else
+            BUILD_LIST=("$ENV")
+          fi
+          echo "Environments to build: ${BUILD_LIST[@]}"
+          echo "::set-output name=list::${BUILD_LIST[*]}"
 
-      - name: Build & Publish per environment
-        shell: pwsh
+      - name: Build & Publish for each environment
+        shell: bash
         run: |
-          $envList = "${{ steps.set-env.outputs.env-list }}".Split(' ')
-          cd client
-          npm install
-          foreach ($env in $envList) {
-              if ([string]::IsNullOrEmpty($env)) { continue }
-              Write-Host "=== Building $env ==="
-              npx ng build --configuration $env
-              cd ..
-              dotnet build --configuration $env
-              dotnet publish -c $env -o "./publish-$env"
-              cd client
-          }
+          BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
+          for e in "${BUILD_LIST[@]}"; do
+            echo "=== Building $e ==="
+            cd client
+            npx ng build --configuration "$e"
+            cd ..
+            dotnet publish API/API.csproj -c Release -o "./publish-$e"
+          done
 
-      - name: Upload SIT artifact
-        if: always() && contains(steps.set-env.outputs.env-list, 'sit')
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-sit
-          path: ./publish-sit
-
-      - name: Upload QA artifact
-        if: always() && contains(steps.set-env.outputs.env-list, 'qa')
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-qa
-          path: ./publish-qa
-
-      - name: Upload UAT artifact
-        if: always() && contains(steps.set-env.outputs.env-list, 'uat')
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-uat
-          path: ./publish-uat
+      - name: Upload artifacts dynamically
+        shell: bash
+        run: |
+          BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
+          for e in "${BUILD_LIST[@]}"; do
+            echo "Uploading artifact for $e"
+            gh workflow upload-artifact --name "app-$e" --path "./publish-$e"
+          done
