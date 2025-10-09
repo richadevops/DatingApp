@@ -161,20 +161,20 @@ jobs:
           package: ./publish-uat
 
   manual-deploy:
-    if: github.event_name == 'workflow_dispatch'
-    needs: build
-    runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - name: Download artifact for selected environment
-        uses: actions/download-artifact@v4
-        with:
-          name: app-${{ github.event.inputs.environment }}
-          path: ./publish
+   if: github.event_name == 'workflow_dispatch'
+   needs: build
+   runs-on: ubuntu-latest
+   environment: ${{ github.event.inputs.environment }}
+   steps:
+    - name: Download artifact for selected environment
+      uses: actions/download-artifact@v4
+      with:
+        name: app-${{ github.event.inputs.environment }}
+        path: ./publish
 
-      - name: Deploy to selected environment
-        uses: Azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets[format('APP_SERVICE_NAME_{0}', github.event.inputs.environment | upper)] }}
-          publish-profile: ${{ secrets[format('AZURE_WEBAPP_PUBLISH_PROFILE_{0}', github.event.inputs.environment | upper)] }}
-          package: ./publish
+    - name: Deploy to selected environment
+      uses: Azure/webapps-deploy@v3
+      with:
+        app-name: ${{ secrets.APP_SERVICE_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ./publish
