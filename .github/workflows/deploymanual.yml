@@ -3,8 +3,8 @@ name: Release Deployment
 on:
   workflow_dispatch:
     inputs:
-      build_run_number:
-        description: "Enter the build workflow run number to fetch artifacts from"
+      build_run_id:
+        description: "Enter the build workflow Run ID to fetch artifacts from"
         required: true
         type: string
 
@@ -26,21 +26,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Download artifact from specified build run
+      # ✅ Download artifact from another workflow run (correct syntax)
+      - name: Download artifact from build workflow
         uses: actions/download-artifact@v4
         with:
           name: app-${{ github.event.inputs.environment }}
           path: ./deploy
           repository: ${{ github.repository }}
-          workflow: buildlatest.yml             # your build workflow filename
-          run-number: ${{ github.event.inputs.build_run_number }}
-          workflow_conclusion: success
+          run-id: ${{ github.event.inputs.build_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Show downloaded files
         run: |
           echo "✅ Downloaded artifact for ${{ github.event.inputs.environment }}"
-          echo "📦 From build run number: ${{ github.event.inputs.build_run_number }}"
-          ls -R ./deploy
+          echo "🏃 From build run ID: ${{ github.event.inputs.build_run_id }}"
+          ls -R ./deploy || echo "⚠️ No files found in ./deploy"
 
       - name: Set environment variables
         run: |
@@ -63,5 +63,5 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.APP_NAME }}
+          app-name: ${{ env.APP_SERVICE_NAME }}
           package: ./deploy
