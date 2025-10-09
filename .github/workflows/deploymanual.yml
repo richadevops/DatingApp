@@ -45,14 +45,6 @@ jobs:
           ENV=${{ github.event.inputs.environment }}
           echo "Environment selected: $ENV"
 
-          if [ "$ENV" == "sit" ]; then
-            echo "APP_NAME=myapp-sit" >> $GITHUB_ENV
-          elif [ "$ENV" == "qa" ]; then
-            echo "APP_NAME=myapp-qa" >> $GITHUB_ENV
-          elif [ "$ENV" == "uat" ]; then
-            echo "APP_NAME=myapp-uat" >> $GITHUB_ENV
-          fi
-
       - name: Azure Login (OIDC)
         uses: azure/login@v2.3.0
         with:
