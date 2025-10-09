@@ -1,20 +1,9 @@
-name: Updated Build & Publish Multienv Pipeline
+name: Build Multienv Artifacts
 
 on:
   push:
-    branches:
-      - main
+
   workflow_dispatch:
-    inputs:
-      environment:
-        description: "Select environment to build"
-        required: true
-        type: choice
-        options:
-          - sit
-          - qa
-          - uat
-          - all
 
 jobs:
   build:
@@ -40,27 +29,12 @@ jobs:
         id: set-env
         shell: pwsh
         run: |
-          # Default environments for push
-          $isPush = "${{ github.event_name }}" -eq "push"
-          if ($isPush) {
-              $envList = @("sit","qa","uat")
-          } else {
-              # Manual run, get input
-              $envInput = "${{ github.event.inputs.environment }}"  # sit, qa, uat, all
-              $order = @("sit","qa","uat")
-              $envList = @()
-              if ($envInput -eq "all") {
-                  $envList = $order
-              } elseif ($order -contains $envInput) {
-                  $index = $order.IndexOf($envInput)
-                  $envList = $order[0..$index]
-              }
-          }
-
+          # On push, build all environments
+          $envList = @("sit","qa","uat")
           Write-Host "Environments to build: $($envList -join ', ')"
-          Write-Output "env-list=$($envList -join ' ')" >> $GITHUB_OUTPUT
+          echo "env-list=$($envList -join ' ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Build & publish Angular + .NET per environment
+      - name: Build & Publish per environment
         shell: pwsh
         run: |
           $envList = "${{ steps.set-env.outputs.env-list }}".Split(' ')
@@ -68,7 +42,6 @@ jobs:
           npm install
           foreach ($env in $envList) {
               if ([string]::IsNullOrEmpty($env)) { continue }
-
               Write-Host "=== Building $env ==="
               npx ng build --configuration $env
               cd ..
@@ -78,21 +51,21 @@ jobs:
           }
 
       - name: Upload SIT artifact
-        if: contains(steps.set-env.outputs.env-list, 'sit')
+        if: always() && contains(steps.set-env.outputs.env-list, 'sit')
         uses: actions/upload-artifact@v4
         with:
           name: app-sit
           path: ./publish-sit
 
       - name: Upload QA artifact
-        if: contains(steps.set-env.outputs.env-list, 'qa')
+        if: always() && contains(steps.set-env.outputs.env-list, 'qa')
         uses: actions/upload-artifact@v4
         with:
           name: app-qa
           path: ./publish-qa
 
       - name: Upload UAT artifact
-        if: contains(steps.set-env.outputs.env-list, 'uat')
+        if: always() && contains(steps.set-env.outputs.env-list, 'uat')
         uses: actions/upload-artifact@v4
         with:
           name: app-uat
