@@ -1,11 +1,11 @@
 name: Build Multienv Artifacts
 
 on:
-  push:
-
+  push: # Automatically build all environments
   workflow_dispatch:
     inputs:
       environment:
+        description: "Choose environment to build (sit, qa, uat, all)"
         required: true
         default: "all"
         type: choice
@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build-list: ${{ steps.set-build-list.outputs.list }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -28,24 +27,27 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "9.0.x"
 
       - name: Determine build environments
         id: set-build-list
         shell: bash
         run: |
-          ENV="${{ github.event.inputs.environment }}"
-          ORDER=("sit" "qa" "uat")
-          BUILD_LIST=()
-          if [ "$ENV" = "all" ]; then
-            BUILD_LIST=("${ORDER[@]}")
+          # On push, build all environments
+          if [ "${{ github.event_name }}" == "push" ]; then
+            BUILD_LIST=("sit" "qa" "uat")
           else
-            BUILD_LIST=("$ENV")
+            ENV="${{ github.event.inputs.environment }}"
+            if [ "$ENV" == "all" ]; then
+              BUILD_LIST=("sit" "qa" "uat")
+            else
+              BUILD_LIST=("$ENV")
+            fi
           fi
           echo "Environments to build: ${BUILD_LIST[@]}"
           echo "::set-output name=list::${BUILD_LIST[*]}"
@@ -62,11 +64,18 @@ jobs:
             dotnet publish API/API.csproj -c Release -o "./publish-$e"
           done
 
-      - name: Upload artifacts dynamically
+      - name: Upload artifacts
         shell: bash
         run: |
           BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
           for e in "${BUILD_LIST[@]}"; do
             echo "Uploading artifact for $e"
-            gh workflow upload-artifact --name "app-$e" --path "./publish-$e"
+            echo "::set-output name=artifact_path::publish-$e"
           done
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-artifacts
+          path: |
+            publish-sit
+            publish-qa
+            publish-uat
