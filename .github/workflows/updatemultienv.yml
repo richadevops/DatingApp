@@ -1,7 +1,6 @@
 name: Build & Deploy Multienv Pipeline
 
 on:
-  push:
 
   workflow_dispatch:
     inputs:
