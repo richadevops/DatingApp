@@ -18,6 +18,7 @@ on:
           - uat
 
 permissions:
+  id-token: write
   contents: read       # Required to read artifacts
   actions: read        # Required to access workflow run artifacts
 
@@ -52,14 +53,13 @@ jobs:
             echo "APP_NAME=myapp-uat" >> $GITHUB_ENV
           fi
 
-      - name: Azure Login
-        uses: azure/login@v2
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2.3.0
         with:
          client-id: ${{ secrets.CLIENTID }}
          tenant-id: ${{ secrets.TENANTID }}
          subscription-id: ${{ secrets.SUBSCRIPTIONID }}
-         auth-type: oidc
-         audience: api://AzureADTokenExchange
+         auth-type: SERVICE_PRINCIPAL
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
