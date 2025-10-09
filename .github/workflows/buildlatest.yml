@@ -1,25 +1,14 @@
 name: Build Multienv Artifacts
 
 on:
-  push: # Automatically build all environments
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Choose environment to build (sit, qa, uat, all)"
-        required: true
-        default: "all"
-        type: choice
-        options:
-          - sit
-          - qa
-          - uat
-          - all
+  push:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
       build-list: ${{ steps.set-build-list.outputs.list }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -27,28 +16,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: '9.0.x'
 
       - name: Determine build environments
         id: set-build-list
         shell: bash
         run: |
-          # On push, build all environments
-          if [ "${{ github.event_name }}" == "push" ]; then
-            BUILD_LIST=("sit" "qa" "uat")
-          else
-            ENV="${{ github.event.inputs.environment }}"
-            if [ "$ENV" == "all" ]; then
-              BUILD_LIST=("sit" "qa" "uat")
-            else
-              BUILD_LIST=("$ENV")
-            fi
-          fi
+          ORDER=("sit" "qa" "uat")
+          BUILD_LIST=("${ORDER[@]}")
           echo "Environments to build: ${BUILD_LIST[@]}"
           echo "::set-output name=list::${BUILD_LIST[*]}"
 
@@ -58,24 +38,32 @@ jobs:
           BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
           for e in "${BUILD_LIST[@]}"; do
             echo "=== Building $e ==="
+            # Angular build
             cd client
+            npm ci
             npx ng build --configuration "$e"
             cd ..
+            # .NET publish
             dotnet publish API/API.csproj -c Release -o "./publish-$e"
           done
 
-      - name: Upload artifacts
-        shell: bash
-        run: |
-          BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
-          for e in "${BUILD_LIST[@]}"; do
-            echo "Uploading artifact for $e"
-            echo "::set-output name=artifact_path::publish-$e"
-          done
+      - name: Upload SIT artifact
+        if: contains(steps.set-build-list.outputs.list, 'sit')
         uses: actions/upload-artifact@v4
         with:
-          name: app-artifacts
-          path: |
-            publish-sit
-            publish-qa
-            publish-uat
+          name: app-sit
+          path: ./publish-sit
+
+      - name: Upload QA artifact
+        if: contains(steps.set-build-list.outputs.list, 'qa')
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-qa
+          path: ./publish-qa
+
+      - name: Upload UAT artifact
+        if: contains(steps.set-build-list.outputs.list, 'uat')
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-uat
+          path: ./publish-uat
