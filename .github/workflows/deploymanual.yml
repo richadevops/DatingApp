@@ -40,11 +40,6 @@ jobs:
           run-id: ${{ github.event.inputs.build_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set environment variables
-        run: |
-          ENV=${{ github.event.inputs.environment }}
-          echo "Environment selected: $ENV"
-
       - name: Azure Login (OIDC)
         uses: azure/login@v2.3.0
         with:
