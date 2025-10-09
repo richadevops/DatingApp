@@ -62,7 +62,8 @@ jobs:
          auth-type: SERVICE_PRINCIPAL
 
       - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v3.0.5
         with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          package: ./deploy
+           app-name: ${{ env.APP_NAME }}   
+           package: ./deploy
+           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
