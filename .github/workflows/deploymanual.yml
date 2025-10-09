@@ -1,50 +1,67 @@
-name: Release Artifact from Specific Run
+name: Release Deployment
 
 on:
   workflow_dispatch:
     inputs:
+      build_run_number:
+        description: "Enter the build workflow run number to fetch artifacts from"
+        required: true
+        type: string
+
       environment:
-        description: "Choose environment to deploy"
+        description: "Select environment to deploy"
         required: true
         type: choice
         options:
           - sit
           - qa
           - uat
-      run_id:
-        description: "Enter the workflow run ID to fetch artifact from"
-        required: true
-        default: ""
 
 jobs:
   deploy:
+    name: Deploy to Azure App Service
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Download artifact for chosen environment
+      - name: Download artifact from specified build run
         uses: actions/download-artifact@v4
         with:
-          name: ${{ format('app-{0}', github.event.inputs.environment) }}
-          path: ./publish
+          name: app-${{ github.event.inputs.environment }}
+          path: ./deploy
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.inputs.run_id }}
+          workflow: build.yml             # your build workflow filename
+          run-number: ${{ github.event.inputs.build_run_number }}
+          workflow_conclusion: success
+
+      - name: Show downloaded files
+        run: |
+          echo "✅ Downloaded artifact for ${{ github.event.inputs.environment }}"
+          echo "📦 From build run number: ${{ github.event.inputs.build_run_number }}"
+          ls -R ./deploy
+
+      - name: Set environment variables
+        run: |
+          ENV=${{ github.event.inputs.environment }}
+          echo "Environment selected: $ENV"
+
+          if [ "$ENV" == "sit" ]; then
+            echo "APP_NAME=myapp-sit" >> $GITHUB_ENV
+          elif [ "$ENV" == "qa" ]; then
+            echo "APP_NAME=myapp-qa" >> $GITHUB_ENV
+          elif [ "$ENV" == "uat" ]; then
+            echo "APP_NAME=myapp-uat" >> $GITHUB_ENV
+          fi
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure App Service
-        uses: Azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.APP_SERVICE_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publish
+          app-name: ${{ env.APP_NAME }}
+          package: ./deploy
