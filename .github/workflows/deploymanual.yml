@@ -32,7 +32,7 @@ jobs:
           name: app-${{ github.event.inputs.environment }}
           path: ./deploy
           repository: ${{ github.repository }}
-          workflow: build.yml             # your build workflow filename
+          workflow: buildlatest.yml             # your build workflow filename
           run-number: ${{ github.event.inputs.build_run_number }}
           workflow_conclusion: success
 
