@@ -26,6 +26,7 @@ jobs:
   deploy:
     name: Deploy to Azure App Service
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout code
@@ -51,6 +52,6 @@ jobs:
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3.0.5
         with:
-           app-name: ${{ github.event.inputs.environment == 'sit' && 'dotang-SIT' || github.event.inputs.environment == 'qa' && 'dotang-QA' || 'dotang-UAT' }}   
+           app-name: ${{ github.event.inputs.environment == 'sit' && secrets.APP_SERVICE_NAME || github.event.inputs.environment == 'qa' && secrets.APP_SERVICE_NAME || secrets.APP_SERVICE_NAME }}   
            package: ./deploy
           
