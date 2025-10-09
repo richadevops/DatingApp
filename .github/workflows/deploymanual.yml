@@ -17,6 +17,10 @@ on:
           - qa
           - uat
 
+permissions:
+  contents: read       # Required to read artifacts
+  actions: read        # Required to access workflow run artifacts
+
 jobs:
   deploy:
     name: Deploy to Azure App Service
@@ -26,8 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      # ✅ Download artifact from another workflow run (correct syntax)
-      - name: Download artifact from build workflow
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: app-${{ github.event.inputs.environment }}
@@ -35,12 +38,6 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ github.event.inputs.build_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Show downloaded files
-        run: |
-          echo "✅ Downloaded artifact for ${{ github.event.inputs.environment }}"
-          echo "🏃 From build run ID: ${{ github.event.inputs.build_run_id }}"
-          ls -R ./deploy || echo "⚠️ No files found in ./deploy"
 
       - name: Set environment variables
         run: |
@@ -56,12 +53,14 @@ jobs:
           fi
 
       - name: Azure Login
-        uses: azure/login@v2
+        uses: Azure/login@v2.3.0
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+         client-id: ${{ secrets.CLIENTID }}
+         tenant-id: ${{ secrets.TENANTID }}
+         subscription-id: ${{ secrets.SUBSCRIPTIONID }}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ env.APP_SERVICE_NAME }}
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
           package: ./deploy
