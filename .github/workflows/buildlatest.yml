@@ -1,26 +1,29 @@
-name: Build .NET + Angular Artifacts latest
+name: latest Build & Deploy Multienv Pipeline
 
 on:
   push:
-  
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select environment to build/deploy"
+        required: true
+        type: choice
+        options:
+          - sit
+          - qa
+          - uat
+          - all
+
 jobs:
   build:
     runs-on: windows-latest
     outputs:
-      env-list: ${{ steps.set-env.outputs.env-list }}
+      build-list: ${{ steps.set-env.outputs.env-list }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Set environment list
-        id: set-env
-        shell: pwsh
-        run: |
-          # Decide environments to build (all)
-          $order = @("sit","qa","uat")
-          Write-Host "Environments to build: $($order -join ', ')"
-          Write-Output "env-list=$($order -join ' ')" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -32,6 +35,22 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Set environment list
+        id: set-env
+        shell: pwsh
+        run: |
+          $envInput = "${{ github.event.inputs.environment }}"  # sit, qa, uat, all
+          $order = @("sit","qa","uat")
+          $envList = @()
+          if ($envInput -eq "all") {
+              $envList = $order
+          } elseif ($order -contains $envInput) {
+              $index = $order.IndexOf($envInput)
+              $envList = $order[0..$index]  # sequential up to chosen environment
+          }
+          Write-Host "Environments to build: $($envList -join ', ')"
+          Write-Output "env-list=$($envList -join ' ')" >> $GITHUB_OUTPUT
+
       - name: Build & Publish per Environment
         shell: pwsh
         run: |
@@ -40,7 +59,7 @@ jobs:
           npm install
           foreach ($env in $envList) {
               Write-Host "=== Building $env ==="
-              ng build --configuration $env
+              npx ng build --configuration $env
               cd ..
               dotnet build --configuration $env
               dotnet publish -c $env -o "./publish-$env"
@@ -54,4 +73,4 @@ jobs:
           foreach ($env in $envList) {
               Write-Host "Uploading artifact for $env"
               gh actions upload-artifact --name app-$env --path "./publish-$env"
-          }
+         
