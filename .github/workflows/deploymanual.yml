@@ -1,0 +1,56 @@
+name: Deploy Multienv Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        required: true
+        type: choice
+        options:
+          - app-sit
+          - app-qa
+          - app-uat
+      environment:
+        required: true
+        type: choice
+        options:
+          - sit
+          - qa
+          - uat
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download selected artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.artifact }}
+          path: ./publish
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.CLIENTID }}
+
+      - name: Deploy to Azure App Service
+        uses: Azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
