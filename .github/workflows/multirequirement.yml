@@ -1,0 +1,149 @@
+name: Multirequirement
+
+on:
+  push:
+  
+  workflow_dispatch:
+    inputs:
+      deploy_mode:
+        required: true
+        type: choice
+        options:
+          - single
+          - sequential
+      environment:
+        required: true
+        type: choice
+        options:
+          - sit
+          - qa
+          - uat
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build-list: ${{ steps.set-build-list.outputs.list }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.branch || 'main' }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Determine build environments
+        id: set-build-list
+        shell: bash
+        run: |
+          ORDER=("sit" "qa" "uat")
+          BUILD_LIST=("${ORDER[@]}")
+          echo "Environments to build: ${BUILD_LIST[@]}"
+          echo "list=${BUILD_LIST[*]}" >> $GITHUB_OUTPUT
+
+      - name: Build & Publish for each environment
+        shell: bash
+        run: |
+          BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
+          for e in "${BUILD_LIST[@]}"; do
+            echo "=== Building for $e ==="
+            cd client
+            npm ci
+            npx ng build --configuration "$e"
+            cd ..
+            dotnet publish API/API.csproj -c Release -o "./publish-$e"
+          done
+
+      - name: Upload SIT artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-sit
+          path: ./publish-sit
+
+      - name: Upload QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-qa
+          path: ./publish-qa
+
+      - name: Upload UAT artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-uat
+          path: ./publish-uat
+
+  deploy-sit:
+    runs-on: ubuntu-latest
+    needs: build
+    environment: SIT
+    if: |
+      github.event_name == 'push' ||
+      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
+      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+    steps:
+      - name: Download SIT artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-sit
+          path: ./publish-sit
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3.0.5
+        with:
+           app-name: ${{ secrets.APP_SERVICE_NAME }}   
+           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+           package: ./deploy
+
+
+  deploy-qa:
+    runs-on: ubuntu-latest
+    needs: deploy-sit
+    environment: QA
+    if: |
+      github.event_name == 'push' ||
+      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
+      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+    steps:
+      - name: Download QA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-qa
+          path: ./publish-qa
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3.0.5
+        with:
+           app-name: ${{ secrets.APP_SERVICE_NAME }}   
+           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+           package: ./deploy
+
+
+  deploy-uat:
+    runs-on: ubuntu-latest
+    needs: deploy-qa
+    environment: UAT
+    if: |
+      github.event_name == 'push' ||
+      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
+      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')
+    steps:
+      - name: Download UAT artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-uat
+          path: ./publish-uat
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3.0.5
+        with:
+           app-name: ${{ secrets.APP_SERVICE_NAME }}   
+           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+           package: ./deploy
