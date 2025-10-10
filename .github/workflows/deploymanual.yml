@@ -5,7 +5,7 @@ on:
     inputs:
       build_run_id:
         description: "Enter the build workflow Run ID to fetch artifacts from"
-        required: true
+        required: false
         type: string
 
       environment:
@@ -32,6 +32,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Determine build run ID
+        id: get_run_id
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.build_run_id }}" ]; then
+            echo "Using provided build run ID: ${{ github.event.inputs.build_run_id }}"
+            echo "run_id=${{ github.event.inputs.build_run_id }}" >> $GITHUB_OUTPUT
+          else
+            echo "Fetching latest successful build workflow run..."
+            LATEST_RUN_ID=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              /repos/${GITHUB_REPOSITORY}/actions/workflows/build.yml/runs \
+              | jq '.workflow_runs[] | select(.conclusion=="success") | .id' | head -n 1)
+            echo "Latest run ID is $LATEST_RUN_ID"
+            echo "run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
+          fi
+          
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
