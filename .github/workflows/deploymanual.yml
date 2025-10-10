@@ -35,6 +35,8 @@ jobs:
       - name: Determine build run ID
         id: get_run_id
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${{ github.event.inputs.build_run_id }}" ]; then
             echo "Using provided build run ID: ${{ github.event.inputs.build_run_id }}"
