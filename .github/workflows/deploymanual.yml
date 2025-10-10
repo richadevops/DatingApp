@@ -57,7 +57,7 @@ jobs:
           name: app-${{ github.event.inputs.environment }}
           path: ./deploy
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.inputs.build_run_id }}
+          run-id: ${{ steps.get_run_id.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       #- name: Azure Login (OIDC)
