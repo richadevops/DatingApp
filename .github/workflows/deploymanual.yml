@@ -45,7 +45,7 @@ jobs:
             echo "Fetching latest successful build workflow run..."
             LATEST_RUN_ID=$(gh api \
               -H "Accept: application/vnd.github+json" \
-              /repos/${GITHUB_REPOSITORY}/actions/workflows/build.yml/runs \
+              /repos/${GITHUB_REPOSITORY}/actions/workflows/buildlatest.yml/runs \
               | jq '.workflow_runs[] | select(.conclusion=="success") | .id' | head -n 1)
             echo "Latest run ID is $LATEST_RUN_ID"
             echo "run_id=$LATEST_RUN_ID" >> $GITHUB_OUTPUT
