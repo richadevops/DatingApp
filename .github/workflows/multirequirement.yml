@@ -100,7 +100,7 @@ jobs:
         with:
            app-name: ${{ secrets.APP_SERVICE_NAME }}   
            publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./deploy
+           package: ./publish-sit
 
 
   deploy-qa:
@@ -123,7 +123,7 @@ jobs:
         with:
            app-name: ${{ secrets.APP_SERVICE_NAME }}   
            publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./deploy
+           package: ./publish-qa
 
 
   deploy-uat:
@@ -146,4 +146,4 @@ jobs:
         with:
            app-name: ${{ secrets.APP_SERVICE_NAME }}   
            publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./deploy
+           package: ./publish-uat
