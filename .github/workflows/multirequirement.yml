@@ -1,17 +1,19 @@
-name: Multirequirement
+name: Multireq
 
 on:
   push:
   
   workflow_dispatch:
     inputs:
-      deploy_mode:
+      deployment_type:
+        description: "Select deployment type"
         required: true
         type: choice
         options:
           - single
           - sequential
       environment:
+        description: "Environment to deploy (for single or sequential)"
         required: true
         type: choice
         options:
@@ -27,8 +29,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.inputs.branch || 'main' }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -40,20 +40,14 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Determine build environments
-        id: set-build-list
-        shell: bash
+      - id: set-build-list
         run: |
           ORDER=("sit" "qa" "uat")
-          BUILD_LIST=("${ORDER[@]}")
-          echo "Environments to build: ${BUILD_LIST[@]}"
-          echo "list=${BUILD_LIST[*]}" >> $GITHUB_OUTPUT
+          echo "list=${ORDER[*]}" >> $GITHUB_OUTPUT
 
-      - name: Build & Publish for each environment
-        shell: bash
+      - name: Build for all environments
         run: |
-          BUILD_LIST=(${{ steps.set-build-list.outputs.list }})
-          for e in "${BUILD_LIST[@]}"; do
+          for e in sit qa uat; do
             echo "=== Building for $e ==="
             cd client
             npm ci
@@ -62,88 +56,57 @@ jobs:
             dotnet publish API/API.csproj -c Release -o "./publish-$e"
           done
 
-      - name: Upload SIT artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-sit
-          path: ./publish-sit
-
-      - name: Upload QA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-qa
-          path: ./publish-qa
-
-      - name: Upload UAT artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-uat
-          path: ./publish-uat
-
-  deploy-sit:
+  deploy:
     runs-on: ubuntu-latest
     needs: build
-    environment: SIT
-    if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+    strategy:
+      matrix:
+        envlist: [sit, qa, uat]
+      max-parallel: 1  # ensures sequential order
     steps:
-      - name: Download SIT artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-sit
-          path: ./publish-sit
+      - name: Set target environment logic
+        id: set-target
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "target_env=uat" >> $GITHUB_OUTPUT
+            echo "mode=auto" >> $GITHUB_OUTPUT
+          else
+            echo "target_env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "mode=${{ github.event.inputs.deployment_type }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip logic
+        id: skip
+        run: |
+          ENV=${{ matrix.envlist }}
+          MODE=${{ steps.set-target.outputs.mode }}
+          TARGET=${{ steps.set-target.outputs.target_env }}
+
+          # Order array
+          ORDER=("sit" "qa" "uat")
+
+          # Determine skip or not
+          SKIP=true
+          for e in "${ORDER[@]}"; do
+            if [[ "$ENV" == "$e" ]]; then
+              SKIP=false
+            fi
+            if [[ "$TARGET" == "$e" ]]; then
+              break
+            fi
+          done
+
+          # For single mode, deploy only the chosen env
+          if [[ "$MODE" == "single" && "$ENV" != "$TARGET" ]]; then
+            SKIP=true
+          fi
+
+          echo "skip=$SKIP" >> $GITHUB_OUTPUT
 
       - name: Deploy to Azure App Service
+        if: steps.skip.outputs.skip == 'false'
         uses: azure/webapps-deploy@v3.0.5
         with:
-           app-name: ${{ secrets.APP_SERVICE_NAME }}   
-           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./publish-sit
-
-
-  deploy-qa:
-    runs-on: ubuntu-latest
-    needs: deploy-sit
-    environment: QA
-    if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
-    steps:
-      - name: Download QA artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-qa
-          path: ./publish-qa
-
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3.0.5
-        with:
-           app-name: ${{ secrets.APP_SERVICE_NAME }}   
-           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./publish-qa
-
-
-  deploy-uat:
-    runs-on: ubuntu-latest
-    needs: deploy-qa
-    environment: UAT
-    if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
-      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')
-    steps:
-      - name: Download UAT artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-uat
-          path: ./publish-uat
-
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3.0.5
-        with:
-           app-name: ${{ secrets.APP_SERVICE_NAME }}   
-           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-           package: ./publish-uat
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish-${{ matrix.envlist }}
