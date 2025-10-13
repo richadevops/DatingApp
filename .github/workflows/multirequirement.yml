@@ -7,17 +7,20 @@ on:
     inputs:
       deploy_mode:
         required: true
+        default: "sequential"
         type: choice
         options:
           - single
           - sequential
       environment:
         required: true
+        default: "all"
         type: choice
         options:
           - sit
           - qa
           - uat
+          - all
  
 jobs:
   build:
@@ -27,9 +30,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.inputs.branch || 'main' }}
+        uses: actions/checkout@v4
  
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -45,10 +46,27 @@ jobs:
         id: set-build-list
         shell: bash
         run: |
-          ORDER=("sit" "qa" "uat")
+         MODE="${{ github.event.inputs.mode }}"
+         ENV="${{ github.event.inputs.environment }}"
+         ORDER=("sit" "qa" "uat")
+         BUILD_LIST=()
+ 
+         if [ "$MODE" = "single" ]; then
+         BUILD_LIST=("$ENV")
+         elif [ "$MODE" = "partial" ]; then
+         for e in "${ORDER[@]}"; do
+          BUILD_LIST+=("$e")
+         if [ "$e" = "$ENV" ]; then
+         break
+         fi
+          done
+         else
           BUILD_LIST=("${ORDER[@]}")
-          echo "Environments to build: ${BUILD_LIST[@]}"
-          echo "list=${BUILD_LIST[*]}" >> $GITHUB_OUTPUT
+         fi
+ 
+         echo "Environments to build: ${BUILD_LIST[@]}"
+         echo "::set-output name=list::${BUILD_LIST[*]}"
+ 
  
       - name: Build & Publish for each environment
         shell: bash
@@ -83,13 +101,10 @@ jobs:
  
   deploy-sit:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: build
     environment: SIT
 
-    if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') || (github.event.inputs.deploy_mode == 'sequential' && 
-      (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+    if: ${{ contains(needs.build.outputs.build-list, 'sit') }}
 
     steps:
       - name: Download SIT artifact
@@ -112,15 +127,10 @@ jobs:
     environment: QA
     if: |
       always() &&
+      contains(needs.build.outputs.build-list, 'qa') &&
       (
-        github.event_name == 'push' ||
-        (github.event.inputs.deploy_mode == 'sequential' && 
-          (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat')) ||
-        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa')
-      ) &&
-      (
-        !contains(needs.build.outputs.build-list, 'sit') ||
-        (contains(needs.build.outputs.build-list, 'sit') && needs.deploy-sit.result == 'success')
+       !contains(needs.build.outputs.build-list, 'sit') ||
+       (contains(needs.build.outputs.build-list, 'sit') && needs.deploy-sit.result == 'success')
       )
     steps:
       - name: Download QA artifact
@@ -144,16 +154,12 @@ jobs:
     environment: UAT
 
     if: |
-      always() &&
-      (
-        github.event_name == 'push' ||
-        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat') ||
-        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat')
-      ) &&
-      (
-        !contains(needs.build.outputs.build-list, 'qa') ||
-        (contains(needs.build.outputs.build-list, 'qa') && needs.deploy-qa.result == 'success')
-      )
+       always() &&
+       contains(needs.build.outputs.build-list, 'uat') &&
+       (
+         !contains(needs.build.outputs.build-list, 'qa') ||
+         (contains(needs.build.outputs.build-list, 'qa') && needs.deploy-qa.result == 'success')
+       )
     steps:
       - name: Download UAT artifact
         uses: actions/download-artifact@v4
