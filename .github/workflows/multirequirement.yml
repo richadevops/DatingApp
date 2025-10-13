@@ -83,13 +83,13 @@ jobs:
  
   deploy-sit:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build]
     environment: SIT
 
     if: |
       github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'sit') || (github.event.inputs.deploy_mode == 'sequential' && 
+      (github.event.inputs.environment == 'sit' || github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
 
     steps:
       - name: Download SIT artifact
@@ -108,12 +108,20 @@ jobs:
  
   deploy-qa:
     runs-on: ubuntu-latest
-    needs:  ${{ github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa' ? '' : 'deploy-sit' }}
+    needs: [build, deploy-sit]
     environment: QA
     if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa') ||
-      (github.event.inputs.deploy_mode == 'sequential' && (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat'))
+      always() &&
+      (
+        github.event_name == 'push' ||
+        (github.event.inputs.deploy_mode == 'sequential' && 
+          (github.event.inputs.environment == 'qa' || github.event.inputs.environment == 'uat')) ||
+        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'qa')
+      ) &&
+      (
+        !contains(needs.build.outputs.build-list, 'sit') ||
+        (contains(needs.build.outputs.build-list, 'sit') && needs.deploy-sit.result == 'success')
+      )
     steps:
       - name: Download QA artifact
         uses: actions/download-artifact@v4
@@ -131,15 +139,21 @@ jobs:
  
   deploy-uat:
     runs-on: ubuntu-latest
-    needs: ${{ github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat' ? '' : 'deploy-qa' }}
+    needs: [build, deploy-qa]
 
     environment: UAT
 
     if: |
-      github.event_name == 'push' ||
-      (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat') ||
-      (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat')
-
+      always() &&
+      (
+        github.event_name == 'push' ||
+        (github.event.inputs.deploy_mode == 'sequential' && github.event.inputs.environment == 'uat') ||
+        (github.event.inputs.deploy_mode == 'single' && github.event.inputs.environment == 'uat')
+      ) &&
+      (
+        !contains(needs.build.outputs.build-list, 'qa') ||
+        (contains(needs.build.outputs.build-list, 'qa') && needs.deploy-qa.result == 'success')
+      )
     steps:
       - name: Download UAT artifact
         uses: actions/download-artifact@v4
