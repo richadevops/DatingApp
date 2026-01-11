@@ -8,6 +8,10 @@ on:
 jobs:
   Semgrep:
     runs-on: ubuntu-latest
+    permissions:
+     contents: read
+     security-events: write
+     
     steps:
       - name: checkout code
         uses: actions/checkout@v6.0.2
@@ -23,11 +27,11 @@ jobs:
             --config=auto \
             --config=security/semgreprules.yml \
             --severity=ERROR \
-            --verbose
-            --sarif > semgrep.sarif || true
+            --sarif \
+            --output=semgrep.sarif
 
-      - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep.sarif
 
