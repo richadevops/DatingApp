@@ -1,0 +1,6 @@
+rules:
+  - id: dotnet-no-hardcoded-password
+    pattern: Password = "..."
+    message: Hardcoded password detected
+    severity: ERROR
+    languages: [csharp, javascript]
