@@ -1,7 +1,7 @@
 name: Multirequirement
  
 on:
-  push:
+ # push:
 
   workflow_dispatch:
     inputs:
