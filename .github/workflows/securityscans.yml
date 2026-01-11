@@ -23,7 +23,18 @@ jobs:
             --config=auto \
             --config=security/semgreprules.yml \
             --severity=ERROR \
-            --error
+            --verbose
+            --sarif > semgrep.sarif || true
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Fail build if Semgrep found issues
+        run: |
+            grep -q '"level": "error"' semgrep.sarif && exit 1 || exit 0
+      
 
   CodeQL-scan:
     runs-on: ubuntu-latest
