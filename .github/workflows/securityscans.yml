@@ -1,0 +1,33 @@
+name: security-scans
+
+on:
+ push:
+
+ workflow_dispatch:
+
+jobs:
+  source_code_scan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+      
+    steps: 
+      - name: checkout code
+        uses: actions/checkout@v6.0.2
+        
+      - name: Initialize CodeQL-scan
+        uses: github/codeql-action/init@v4
+        with:
+          languages: csharp, javascript
+          
+      - name: Build
+        run: |
+          dotnet restore
+          dotnet build --configuration Release
+
+      - name: CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+   
