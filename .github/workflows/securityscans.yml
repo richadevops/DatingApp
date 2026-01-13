@@ -73,8 +73,12 @@ jobs:
 
       - name: Set up SonarQube
         uses: sonarsource/sonarcloud-github-action@v3
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          token: ${{ secrets.SONAR_TOKEN }}
+          args:
+            -Dsonar.projectKey=richadevops
+            -Dsonar.organization=richadevops
   
       - name: Run SonarQube Analysis
         run: |
