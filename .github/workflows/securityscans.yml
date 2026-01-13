@@ -77,7 +77,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args:
-            -Dsonar.projectKey=richadevops
+            -Dsonar.projectKey=richadevops_DatingApp
             -Dsonar.organization=richadevops
   
       - name: Run SonarQube Analysis
