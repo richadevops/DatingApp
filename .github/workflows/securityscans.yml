@@ -79,15 +79,5 @@ jobs:
           args:
             -Dsonar.projectKey=richadevops_DatingApp
             -Dsonar.organization=richadevops
-  
-      - name: Run SonarQube Analysis
-        run: |
-          # For .NET projects
-          dotnet sonarscanner begin /k:"richadevops" /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
-          dotnet build
-          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
-          # For Angular projects
-          sonar-scanner -Dsonar.projectKey="richadevops" -Dsonar.sources=src -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
-
 
           
