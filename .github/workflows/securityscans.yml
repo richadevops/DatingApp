@@ -65,5 +65,25 @@ jobs:
       - name: CodeQL analysis
         uses: github/codeql-action/analyze@v4
 
+  SonarQube:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v6.0.2
 
+      - name: Set up SonarQube
+        uses: sonarsource/sonarcloud-github-action@v3
+        with:
+          token: ${{ secrets.SONAR_TOKEN }}
   
+      - name: Run SonarQube Analysis
+        run: |
+          # For .NET projects
+          dotnet sonarscanner begin /k:"richadevops" /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          dotnet build
+          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          # For Angular projects
+          sonar-scanner -Dsonar.projectKey="richadevops" -Dsonar.sources=src -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
+
+
+          
