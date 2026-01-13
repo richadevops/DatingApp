@@ -71,6 +71,28 @@ jobs:
       - name: checkout code
         uses: actions/checkout@v6.0.2
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+         dotnet-version: 9.0.x
+
+      - name: Install frontend dependencies
+        run: |
+         cd client
+         npm install
+
+      - name: Run Angular tests with coverage
+        run: |
+          cd client
+          npm test -- --watch=false --code-coverage
+
+      - name: Run .NET tests with coverage
+        run: |
+          dotnet test \
+            /p:CollectCoverage=true \
+            /p:CoverletOutput=TestResults/ \
+            /p:CoverletOutputFormat=opencover
+
       - name: Set up SonarQube
         uses: sonarsource/sonarcloud-github-action@v3
         env:
@@ -79,5 +101,13 @@ jobs:
           args:
             -Dsonar.projectKey=richadevops_DatingApp
             -Dsonar.organization=richadevops
+            -Dsonar.cs.opencover.reportsPaths=**/coverage.opencover.xml
+            -Dsonar.javascript.lcov.reportPaths=client/coverage/lcov.info
 
-          
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            TestResults/
+            client/coverage/
