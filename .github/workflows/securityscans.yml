@@ -46,6 +46,33 @@ jobs:
           else
             echo "✅ No secrets detected"
           fi
+
+  TruffelHog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh
+          sudo mv trufflehog /usr/local/bin/
+          
+      - name: Run TruffleHog (save report)
+        run: |
+              trufflehog git file://. \
+                --json \
+                --no-update > trufflehog.json
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+           name: trufflehog-report
+           path: trufflehog.json
           
   Semgrep:
     runs-on: ubuntu-latest
