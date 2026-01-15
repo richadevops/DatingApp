@@ -168,3 +168,59 @@ jobs:
             -Dsonar.projectKey=richadevops_DatingApp
             -Dsonar.organization=richadevops
 
+  OWASP-Dependency-Check:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: read
+        security-events: write
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: |
+          cd client
+          npm install
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@v3
+        continue-on-error: true
+        with:
+          project: "DatingApp"
+          path: "."
+          format: "HTML,JSON,SARIF"
+          out: "dependency-check-report"
+          args: >
+            --enableExperimental
+            --failOnCVSS 7
+
+      - name: Upload Dependency Check reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: dependency-check-report/dependency-check-report.sarif    
+
+      - name: Fail if high-risk vulnerabilities found
+        if: always()
+        run: |
+          if grep -q '"cvssScore":[7-9]' dependency-check-report/dependency-check-report.json; then
+            echo "❌ High or Critical vulnerabilities detected"
+            exit 1
+          else
+            echo "✅ No high-risk vulnerabilities detected"
+          fi
