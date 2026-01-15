@@ -63,11 +63,10 @@ jobs:
           echo "$PWD/bin" >> $GITHUB_PATH
           
       - name: Run TruffleHog (save report)
-        continue-on-error: true
         run: |
           trufflehog git file://. \
-            --json \
-            --no-update > trufflehog.json
+           --json \
+           --no-update > trufflehog.json || echo "SECRETS_FOUND" > trufflehog.failed
 
       - name: Upload report
         uses: actions/upload-artifact@v4
@@ -76,10 +75,13 @@ jobs:
            path: trufflehog.json
 
       - name: Fail if secrets detected
-        if: ${{ steps.trufflehog.outcome == 'failure' }}
         run: |
-         echo "❌ Secrets detected by TruffleHog"
-         exit 1
+           if [ -f trufflehog.failed ]; then
+             echo "❌ Secrets detected by TruffleHog"
+             exit 1
+           else
+             echo "✅ No secrets found"
+           fi
           
   Semgrep:
     runs-on: ubuntu-latest
