@@ -47,7 +47,7 @@ jobs:
             echo "✅ No secrets detected"
           fi
 
-  TruffelHog:
+  TruffleHog:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,7 +60,7 @@ jobs:
       - name: Install TruffleHog
         run: |
           curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh
-          sudo mv trufflehog /usr/local/bin/
+          echo "$PWD/bin" >> $GITHUB_PATH
           
       - name: Run TruffleHog (save report)
         run: |
