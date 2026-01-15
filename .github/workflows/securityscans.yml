@@ -198,7 +198,7 @@ jobs:
         with:
           project: "DatingApp"
           path: "."
-          format: "HTML,JSON,SARIF"
+          format: "ALL"
           out: "dependency-check-report"
           args: >
             --enableExperimental
