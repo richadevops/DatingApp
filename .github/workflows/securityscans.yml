@@ -76,10 +76,10 @@ jobs:
            path: trufflehog.json
 
       - name: Fail if secrets detected
-        if: failure()
+        if: ${{ steps.trufflehog.outcome == 'failure' }}
         run: |
-          echo "❌ Secrets detected by TruffleHog"
-          exit 1
+         echo "❌ Secrets detected by TruffleHog"
+         exit 1
           
   Semgrep:
     runs-on: ubuntu-latest
