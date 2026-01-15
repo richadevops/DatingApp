@@ -28,7 +28,7 @@ jobs:
         run: |
           gitleaks detect \
             --redact \
-            --exit-code=1 \
+            --exit-code=0 \
             --report-format sarif \
             --report-path gitleaks.sarif
 
@@ -36,6 +36,16 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks.sarif    
+          
+      - name: Fail pipeline if secrets found
+        run: |
+          COUNT=$(jq '.runs[].results | length' gitleaks.sarif)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "❌ Secrets detected: $COUNT"
+            exit 1
+          else
+            echo "✅ No secrets detected"
+          fi
           
   Semgrep:
     runs-on: ubuntu-latest
