@@ -205,7 +205,6 @@ jobs:
 
       - name: Run OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@main
-        continue-on-error: true
         with:
           project: "DatingApp"
           path: "."
@@ -217,23 +216,15 @@ jobs:
 
       - name: Upload Dependency Check reports
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: dependency-check-report
           path: dependency-check-report
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: dependency-check-report/dependency-check-report.sarif    
 
-      - name: Fail if high-risk vulnerabilities found
-        if: always()
-        run: |
-          COUNT=$(jq '[.dependencies[].vulnerabilities[]? | select(.cvssScore >= 7)] | length' dependency-check-report/dependency-check-report.json)
-
-          if [ "$COUNT" -gt 0 ]; then
-             echo "❌ Found $COUNT high or critical vulnerabilities"
-             exit 1
-          else
-             echo "✅ No high or critical vulnerabilities found"
-          fi
+    
